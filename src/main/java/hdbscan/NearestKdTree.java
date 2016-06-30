@@ -11,56 +11,18 @@ import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.index.ArrayListVisitor;
 import com.vividsolutions.jts.index.ItemVisitor;
 
-/**
- * <p>A {@link KdTree} with methods to query for the nearest neighbor to a
- * specified search point. There are three current strategies for determining
- * the nearest neighbor:</p>
- * 
- * <ol>
- * <li> The point in the tree nearest to the search point. (The search point
- *      need not exist in the tree.)</li>
- * <li> The point in the tree nearest to the search point which is not 
- *      identical to the search point. (Used to locate nearest neighbors 
- *      to points which are in the tree.)</li>
- * <li> The point in the tree nearest to the search point which is not
- *      contained within a specified <code>Collection</code> of points. (Used to 
- *      locate nearest neighbors which are not part of the same cluster.)</li>
- * </ol>
- * 
- * <p>Range searches are inherited from {@link KdTree}, as are all the mutable
- * behaviors (such as adding points).</p>
- * 
- * @author Bryce Nordgren
- * @since 1.12
- * @see KdTree
- * @see NearestSearch
- * @see NearestNonIdenticalSearch
- * @see NearestNotInSearch
- *
- */
+
 public class NearestKdTree{
 	private KdNode root;
 	private double tolerance;
-//	private KdNode last = null;
-//	private Envelope treeBBox;
-	/**
-	 * <p>Creates an empty <code>NearestKdTree</code>.</p>
-	 * 
-	 * <p><b>NOTE:</b> if you already have all or most of the points you
-	 * intend to store in this tree, it is more efficient to use the 
-	 * factory method: {@link #loadNearestKdTree(Coordinate[])}.</p>
-	 */
+
+
 	public NearestKdTree(Coordinate[] points,int k) { 
 		this.tolerance = Double.NaN;
 		loadTree(points, k);
 	}
 	
-	/**
-	 * Creates an empty KdTree with the specified snap tolerance. See 
-	 * {@link KdTree#KdTree(double)} for more details.
-	 * 
-	 * @param tol the snap tolerance
-	 */
+
 	public NearestKdTree(Coordinate[] points, int k, double tol) { 
 		this.tolerance = tol;
 		loadTree(points,k);
@@ -192,9 +154,6 @@ public class NearestKdTree{
 
 		/**
 		 * Performs a range search of the points in the index.
-		 * 
-		 * @param queryEnv
-		 *          the range rectangle to query
 		 * @return a list of the KdNodes found
 		 */
 		public void query(KdNode currentNode, ArrayListVisitor v) {
@@ -207,9 +166,6 @@ public class NearestKdTree{
 		
 		/**
 		 * Performs a range search of the points in the index.
-		 * 
-		 * @param queryEnv
-		 *          the range rectangle to query
 		 * @return a list of the KdNodes found
 		 */
 		public void queryExcludeBBox(KdNode currentNode, ArrayListVisitor v,Envelope excludeBBox) {
@@ -223,32 +179,13 @@ public class NearestKdTree{
 		}
 	
 	
-		
-	
 	/**
-	 * Returns the path through the tree (all the way to the leaf node) caused 
-	 * by traversing the tree looking for coordinate p. The coordinate is not expected
-	 * to exist in the tree. 
-	 * 
-	 * @param p coordinate to search for.
-	 * @return path from root to leaf, caused by searching for p.
-	 */
-	@SuppressWarnings("unchecked")
-	public ArrayList<KdNode> path(Coordinate p) {
-		ArrayListVisitor v = new ArrayListVisitor() ; 
-		
-		traverse(getRoot(), p, v) ; 
-		return v.getItems() ; 
-	}
-	
-	
-	/**
-	 * Traverses the tree structure in search of the coordinate p, starting 
+	 * Traverses the tree structure in search of the coordinate searchPoint, starting
 	 * from the provided node. Note that this method will not terminate 
-	 * on "p" if it occurs in the interior of the tree. It always navigates all 
+	 * on "searchPoint" if it occurs in the interior of the tree. It always navigates all
 	 * the way to a leaf node.
 	 * @param start The node in the tree from which to begin the traversal
-	 * @param p coordinate to search for
+	 * @param searchPoint coordinate to search for
 	 * @param v if provided, will be made to visit all the nodes from start to
 	 *          a leaf.
 	 */

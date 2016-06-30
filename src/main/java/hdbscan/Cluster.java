@@ -1,24 +1,21 @@
 package hdbscan;
 
-import java.util.Arrays;
-import java.util.Set;
+import java.util.*;
 
+import org.apache.commons.math3.util.Pair;
 import org.jgrapht.alg.ConnectivityInspector;
 import org.jgrapht.graph.DefaultWeightedEdge;
+import org.jgrapht.graph.SimpleWeightedGraph;
 import org.jgrapht.graph.UndirectedWeightedSubgraph;
 
 
 public class Cluster {
 
-	// ------------------------------ PRIVATE VARIABLES ------------------------------
-	
 	private int label;
 	private Double birthLevel;
-	private Double deathLevel;
-	private Double lowestDeathLevel;
 	private int minClSize;
 	
-	private UndirectedWeightedSubgraph<ClusterNode, DefaultWeightedEdge> graph;
+	private SimpleWeightedGraph<ClusterNode, DefaultWeightedEdge> graph;
 	
 	private Double stability;
 
@@ -33,18 +30,17 @@ public class Cluster {
 	
 	/**
 	 * Creates a new Cluster.
-	 * @param label The cluster label, which should be globally unique
 	 * @param parent The cluster which split to create this cluster
 	 * @param birthLevel The MST edge level at which this cluster first appeared
-	 * @param numPoints The initial number of points in this cluster
+	 * @param minClSize The minimum num of points to be a cluster
+	 * @param graph UndirectedWeightedGraph the represents initital cluster
 	 */
 	public Cluster(Cluster parent, Double birthLevel, int minClSize,
-			UndirectedWeightedSubgraph<ClusterNode, DefaultWeightedEdge> graph) {
+			SimpleWeightedGraph<ClusterNode, DefaultWeightedEdge> graph) {
 		clusterCount += 1;
 		this.graph = graph;
 		this.label = clusterCount;
 		this.birthLevel = birthLevel;
-		this.deathLevel = null;
 		this.minClSize = minClSize;
 		
 		this.stability = 0.0;
@@ -62,62 +58,167 @@ public class Cluster {
 			graph.getEdgeSource(edge).setCluster(this);
 			graph.getEdgeTarget(edge).setCluster(this);
 		}
-		System.out.println("Change label: " + this.getLabel());
-		int count = 0;
-		for (DefaultWeightedEdge edge : this.getGraph().edgeSet()){
-			count += 1;
-			if (count > 10) break;
-			System.out.println(edge);
-		}
 	}
 	
 	public void labelVertices(Cluster cluster){
-		for(ClusterNode node : graph.vertexSet()){
-			node.setCluster(cluster);
+		for (DefaultWeightedEdge edge : graph.edgeSet()){
+			graph.getEdgeSource(edge).setCluster(cluster);
+			graph.getEdgeTarget(edge).setCluster(cluster);
 		}
 	}
 	
 	public Double analyzeCluster(){
 		EdgeComparator ec = new EdgeComparator(graph);
-		UndirectedWeightedSubgraph<ClusterNode, DefaultWeightedEdge> subGraph = 
-				new UndirectedWeightedSubgraph(graph,null,null);
 		DefaultWeightedEdge[] sortedEdges = new DefaultWeightedEdge[graph.edgeSet().size()];
+		HashMap<Pair<ClusterNode,ClusterNode>,Double> removedEdges = new HashMap();
 		graph.edgeSet().toArray(sortedEdges);
 		Arrays.sort(sortedEdges,ec);
-		for(int i = sortedEdges.length -1; i >= 0 && deathLevel == null; i--){
+//		System.out.println("Sorting: " + sortedEdges.length);
+//		for (int j = sortedEdges.length-1; j >= 0 && j > sortedEdges.length -10; j--){
+//			System.out.println(graph.getEdgeWeight(sortedEdges[j]));
+//		}
+		for(int i = sortedEdges.length -1; i >= 0; i--){
 			Double currEdgeWeight = graph.getEdgeWeight(sortedEdges[i]);
 			ClusterNode v1 = graph.getEdgeSource(sortedEdges[i]);
 			ClusterNode v2 = graph.getEdgeTarget(sortedEdges[i]);
-			subGraph.removeEdge(sortedEdges[i]);
-
-			stability += (1/currEdgeWeight - 1/this.birthLevel);
-
-			if(subGraph.degreeOf(v1) < 1){
-				subGraph.removeVertex(v1);
-				continue;
-				
-			}
-			if(subGraph.degreeOf(v2) < 1){
-				subGraph.removeVertex(v2);
+			Double edgeWeight = graph.getEdgeWeight(sortedEdges[i]);
+//			System.out.println(getLabel() + " : " + v1 + "->" + v2 + " | " + edgeWeight);
+			removedEdges.put(new Pair(v1,v2),edgeWeight);
+			graph.removeEdge(sortedEdges[i]);
+			if(v1 == null || v2 == null || edgeWeight == null){
+				System.out.println("Searched for edge no longer in graph");
 				continue;
 			}
-			if(subGraph.vertexSet().size() < minClSize){
-				deathLevel = currEdgeWeight;
+
+			boolean prune = false;
+			if(!graph.containsVertex(v1)){
+				prune = true;
+			}else if(graph.degreeOf(v1) < 1){
+				graph.removeVertex(v1);
+				prune = true;
+
+			}
+			if(!graph.containsVertex(v2)){
+				prune = true;
+			}else if(graph.degreeOf(v2) < 1){
+				graph.removeVertex(v2);
+				prune = true;
+			}
+			if(graph.vertexSet().size() < minClSize){
+				for(int j = i-1; j> 0; j-- ){
+					stability += (1/currEdgeWeight - 1/this.birthLevel);
+//					System.out.println(getLabel() + " stability (min cluster) increased to: " + stability + " Current EW: " + currEdgeWeight + " BL: " + birthLevel);
+				}
+				for (Map.Entry<Pair<ClusterNode, ClusterNode>, Double> entry : removedEdges.entrySet()) {
+					graph.addVertex(entry.getKey().getFirst());
+					graph.addVertex(entry.getKey().getSecond());
+					DefaultWeightedEdge tempEdge = graph.addEdge(entry.getKey().getFirst(), entry.getKey().getSecond());
+					graph.setEdgeWeight(tempEdge, entry.getValue());
+				}
+				break;
+			}else if (prune) {
+				stability += (1/currEdgeWeight - 1/this.birthLevel);
+//				System.out.println(getLabel() + " stability (prune) increased to: " + stability + " Current EW: " + currEdgeWeight + " BL: " + birthLevel);
+				continue;
 			}else{
-				ConnectivityInspector<ClusterNode, DefaultWeightedEdge> ci = new ConnectivityInspector<>(subGraph);
+				ConnectivityInspector<ClusterNode, DefaultWeightedEdge> ci = new ConnectivityInspector<>(graph);
 				if(!ci.isGraphConnected()){
-					deathLevel = currEdgeWeight;
+//					System.out.println("Not Connected");
 					Set<ClusterNode>leftVertices = ci.connectedSetOf(v1);
 					Set<ClusterNode>rightVertices = ci.connectedSetOf(v2);
+//					System.out.println("Component sizes:" + leftVertices.size() + " : " + rightVertices.size());
 					if(leftVertices.size() >= minClSize && rightVertices.size() >= minClSize){
-						left = new Cluster(this,currEdgeWeight,minClSize,
-								new UndirectedWeightedSubgraph<>(subGraph, ci.connectedSetOf(v1),subGraph.edgeSet()));
-						right = new Cluster(this,currEdgeWeight,minClSize,
-								new UndirectedWeightedSubgraph<>(subGraph, ci.connectedSetOf(v2),subGraph.edgeSet()));
-						labelVertices(left);
-						labelVertices(right);
+						System.out.println("Component sizes:" + leftVertices.size() + " : " + rightVertices.size());
+						SimpleWeightedGraph<ClusterNode, DefaultWeightedEdge> leftGraph = new SimpleWeightedGraph(DefaultWeightedEdge.class);
+						SimpleWeightedGraph<ClusterNode, DefaultWeightedEdge> rightGraph = new SimpleWeightedGraph(DefaultWeightedEdge.class);
+						for (ClusterNode leftInput : ci.connectedSetOf(v1)) {
+							leftGraph.addVertex(leftInput);
+						}
+						for (ClusterNode rightInput : ci.connectedSetOf(v2)) {
+							rightGraph.addVertex(rightInput);
+						}
+						Double tempBL = 0.0;
+						for (ClusterNode node : leftGraph.vertexSet()) {
+							for (DefaultWeightedEdge edge : graph.edgesOf(node)) {
+								DefaultWeightedEdge le = leftGraph.addEdge(graph.getEdgeSource(edge), graph.getEdgeTarget(edge));
+								Double lw = graph.getEdgeWeight(edge);
+								if (lw > tempBL) {
+									tempBL = lw;
+								}
+								if (le != null) leftGraph.setEdgeWeight(le, lw);
+							}
+						}
+						left = new Cluster(this, tempBL, minClSize, leftGraph);
+						tempBL = 0.0;
+						for (ClusterNode node : rightGraph.vertexSet()) {
+							for (DefaultWeightedEdge edge : graph.edgesOf(node)) {
+								DefaultWeightedEdge re = rightGraph.addEdge(graph.getEdgeSource(edge), graph.getEdgeTarget(edge));
+								Double rw = graph.getEdgeWeight(edge);
+								if (rw > tempBL) {
+									tempBL = rw;
+								}
+								if (re != null) rightGraph.setEdgeWeight(re, rw);
+							}
+						}
+						right = new Cluster(this, tempBL, minClSize, rightGraph);
+//						System.out.println("Right Edges:");
+//						for (DefaultWeightedEdge e3 : right.getGraph().edgeSet()){
+//							System.out.println(right.getLabel() + " REW: " + right.getGraph().getEdgeWeight(e3));
+//						}
+
+						for (Map.Entry<Pair<ClusterNode, ClusterNode>, Double> entry : removedEdges.entrySet()) {
+							graph.addVertex(entry.getKey().getFirst());
+							graph.addVertex(entry.getKey().getSecond());
+							DefaultWeightedEdge tempEdge = graph.addEdge(entry.getKey().getFirst(), entry.getKey().getSecond());
+							graph.setEdgeWeight(tempEdge, entry.getValue());
+						}
+
+//						labelVertices(left);
+//						labelVertices(right);
 						hasChildren = true;
+						break;
+					}else if(leftVertices.size() < minClSize && rightVertices.size() < minClSize) {
+						for(int j = i-1; j> 0; j-- ){
+							stability += (1/currEdgeWeight - 1/this.birthLevel);
+//							System.out.println(getLabel() + " stability (split death) increased to: " + stability + " Current EW: " + currEdgeWeight + " BL: " + birthLevel);
+						}
+						for (Map.Entry<Pair<ClusterNode, ClusterNode>, Double> entry : removedEdges.entrySet()) {
+							graph.addVertex(entry.getKey().getFirst());
+							graph.addVertex(entry.getKey().getSecond());
+							DefaultWeightedEdge tempEdge = graph.addEdge(entry.getKey().getFirst(), entry.getKey().getSecond());
+							graph.setEdgeWeight(tempEdge, entry.getValue());
+						}
+						break;
+
+					}else if(leftVertices.size() < minClSize){
+						for(ClusterNode lv : leftVertices){
+							HashSet<DefaultWeightedEdge> tempEdges = new HashSet(graph.edgesOf(lv));
+							for(DefaultWeightedEdge lve : tempEdges){
+								stability += (1/currEdgeWeight - 1/this.birthLevel);
+//								System.out.println(getLabel() + " stability (prune left small cluster) increased to: " + stability + " Current EW: " + currEdgeWeight + " BL: " + birthLevel);
+								ClusterNode ls = graph.getEdgeSource(lve);
+								ClusterNode lt = graph.getEdgeTarget(lve);
+								Double lw = graph.getEdgeWeight(lve);
+								removedEdges.put(new Pair(ls,lt),lw);
+								graph.removeEdge(lve);
+							}
+						}
+
+					}else if(rightVertices.size() < minClSize){
+						for(ClusterNode rv : rightVertices){
+							HashSet<DefaultWeightedEdge> tempEdges = new HashSet(graph.edgesOf(rv));
+							for(DefaultWeightedEdge rve : tempEdges){
+								stability += (1/currEdgeWeight - 1/this.birthLevel);
+//								System.out.println(getLabel() + " stability (prune right small cluster) increased to: " + stability + " Current EW: " + currEdgeWeight + " BL: " + birthLevel);
+								ClusterNode rs = graph.getEdgeSource(rve);
+								ClusterNode rt = graph.getEdgeTarget(rve);
+								Double rw = graph.getEdgeWeight(rve);
+								removedEdges.put(new Pair(rs,rt),rw);
+								graph.removeEdge(rve);
+							}
+						}
 					}
+
 				}
 			}
 		}
@@ -131,18 +232,17 @@ public class Cluster {
 	public Cluster getParent() {
 		return this.parent;
 	}
-	
-
-	public Double getDeathLevel() {
-		return deathLevel;
-	}
 
 	public int getMinClSize() {
 		return minClSize;
 	}
 
-	public UndirectedWeightedSubgraph<ClusterNode, DefaultWeightedEdge> getGraph() {
+	public SimpleWeightedGraph<ClusterNode, DefaultWeightedEdge> getGraph() {
 		return graph;
+	}
+
+	public void setGraph(SimpleWeightedGraph<ClusterNode, DefaultWeightedEdge> graph){
+		this.graph = graph;
 	}
 
 	public Cluster getLeft() {
@@ -157,14 +257,6 @@ public class Cluster {
 		left = null;
 		right = null;
 		hasChildren = false;
-	}
-
-	public boolean isHasChildren() {
-		return hasChildren;
-	}
-
-	public static int getClusterCount() {
-		return clusterCount;
 	}
 
 	public Double getBirthLevel() {

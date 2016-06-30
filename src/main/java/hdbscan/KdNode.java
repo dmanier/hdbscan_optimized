@@ -12,8 +12,7 @@ import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
 
 /**
- * A node of a {@link KdTree}
- * 
+ *
  * @author Damien Manier
  */
 public class KdNode implements Comparable<KdNode> {
@@ -41,7 +40,6 @@ public class KdNode implements Comparable<KdNode> {
      * 
      * @param _x coordinate of point
      * @param _y coordinate of point
-     * @param data a data objects to associate with this node
      */
     public KdNode(double _x, double _y,int axis, int k) {
         p = new Coordinate(_x, _y);
@@ -65,7 +63,6 @@ public class KdNode implements Comparable<KdNode> {
      * Creates a new KdNode.
      * 
      * @param p point location of new node
-     * @param data a data objects to associate with this node
      */
     public KdNode(Coordinate p, int axis, int k) {
         this.p = new Coordinate(p);
@@ -254,27 +251,7 @@ public class KdNode implements Comparable<KdNode> {
     	return retval ;
     }
     
-    /**
-     * Returns the value of the coordinate of the specified point along the
-     * split axis. 
-     * @param other the specified point
-     * @return the coordinate value of {@link other} along the split axis.
-     * @since 1.12
-     */
-    public double getSplitValue(Coordinate other) { 
-    	double retval ; 
-    	switch (axis) {
-    	case 0 :
-    		retval = other.x ; 
-    		break ;
-    	case 1 : 
-    		retval = other.y ; 
-    		break ; 
-    	default :
-    		retval = Double.NaN ; 
-    	}
-    	return retval ;
-    }
+
     /**
      * Returns the X coordinate of the node
      * 

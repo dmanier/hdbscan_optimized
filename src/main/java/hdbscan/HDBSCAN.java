@@ -116,7 +116,7 @@ public class HDBSCAN {
 		}
 	}
 	
-	public static void createClusterWKT(UndirectedWeightedSubgraph<ClusterNode, DefaultWeightedEdge> clusterGraph){
+	public static void createClusterWKT(SimpleWeightedGraph<ClusterNode, DefaultWeightedEdge> clusterGraph){
 		GeometryFactory gf = new GeometryFactory(new PrecisionModel(),4326);
 		
 		try{
@@ -127,24 +127,16 @@ public class HDBSCAN {
 			FileWriter fw = new FileWriter(file.getAbsoluteFile());
 			BufferedWriter bw = new BufferedWriter(fw);
 			bw.write("v1,v2,weight,wkt");
-//			for(DefaultWeightedEdge e : clusterGraph.edgeSet()){
-//				System.out.println(e);
-//			}
-			System.out.println("Create Cluster");
-			int count = 0;
-			for (DefaultWeightedEdge edge : clusterGraph.edgeSet()){
-				count += 1;
-				if (count > 10) break;
-				System.out.println(edge);
-			}
+
 			for(DefaultWeightedEdge e : clusterGraph.edgeSet()){
 				ClusterNode node1 = clusterGraph.getEdgeSource(e);
 				ClusterNode node2 = clusterGraph.getEdgeTarget(e);
-//				System.out.println(node1 + "\t" + node2 + "\t" + clusterGraph.getEdgeWeight(e));
+				Double weight = clusterGraph.getEdgeWeight(e);
 				Coordinate point1 =node1.getCoord();
 				Coordinate point2 = node2.getCoord();
 				Coordinate[] coords = {point1,point2};
-				bw.write("\n\"" + (node1.getCluster() != null ? node1.getCluster().getLabel() : "None") + "\"" + "," + "\"" + (node2.getCluster() != null ? node2.getCluster().getLabel() : "None") + "\"" + "," + "\"" + gf.createLineString(coords) + "\"");
+				bw.write("\n\"" + (node1.getCluster() != null ? node1.getCluster() : "None") + "\"" + "," + "\"" + (node2.getCluster() != null ? node2.getCluster() : "None") + "\"" + "," +
+						"\"" + weight + "\"" + "," + "\"" +  gf.createLineString(coords) + "\"");
 			}
 			bw.close();
 		}catch(IOException e){
@@ -203,7 +195,7 @@ public class HDBSCAN {
 	}
 	 public static void main(String[] args) {
 		try{
-			Coordinate[] data = readInDataSet("data/testData.csv", ",");
+			Coordinate[] data = readInDataSet("data/measurements_36_coords.csv", ",");
 			long startTime = System.currentTimeMillis();
 			NearestKdTree tree = calculateNearestKdTree(data, 3, 0.001);
 			System.out.println("Time to calculate NN: " + (System.currentTimeMillis() - startTime));
@@ -218,28 +210,12 @@ public class HDBSCAN {
 					maxWeight = currWeight;
 				}
 			}
-			Cluster rootCluster = new Cluster(null,maxWeight,3,new UndirectedWeightedSubgraph<>(kmst, null, null));
+			Cluster rootCluster = new Cluster(null,maxWeight,500,kmst);
 			ClusterHeirarchy ch = new ClusterHeirarchy(rootCluster);
 			System.out.println("Build root cluster and init heirarchy: " + (System.currentTimeMillis() - startTime));
 			startTime = System.currentTimeMillis();
 			ch.makeHeirarchy();
 			System.out.println("Make Heirarchy:" + (System.currentTimeMillis() - startTime));
-			int count = 0;
-			for(ClusterNode node : ch.getRoot().getGraph().vertexSet()){
-				count += 1;
-				if (count > 10) break;
-				System.out.println(node);
-			}
-//			for(DefaultWeightedEdge e : rootCluster.getGraph().edgeSet()){
-//				System.out.println("Root:\n");
-//				System.out.println(rootCluster.getGraph().getEdgeSource(e));
-//				System.out.println(rootCluster.getGraph().getEdgeTarget(e));
-//				System.out.println(rootCluster.getGraph().getEdgeWeight(e));
-//				System.out.println("KMST:\n");
-//				System.out.println(kmst.getEdgeSource(e));
-//				System.out.println(kmst.getEdgeTarget(e));
-//				System.out.println(kmst.getEdgeWeight(e));
-//			}
 			createClusterWKT(ch.getRoot().getGraph());
 			System.out.println("Write MST to WKT: " + (System.currentTimeMillis() - startTime));
 			startTime = System.currentTimeMillis();

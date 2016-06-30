@@ -5,7 +5,7 @@ import com.vividsolutions.jts.geom.Coordinate;
 public class ClusterNode {
 	
 	private Coordinate coord;
-	private Cluster cluster;
+	private Integer cluster;
 	private Double deathLevel;
 	private Double outlierScore;
 	
@@ -18,17 +18,17 @@ public class ClusterNode {
 	
 	public ClusterNode(KdNode kdNode, Cluster cluster){
 		this.coord = kdNode.getCoordinate();
-		this.cluster = cluster;
+		this.cluster = cluster.getLabel();
 		this.deathLevel = null;
 		this.outlierScore = null;
 	}
 
-	public Cluster getCluster() {
+	public Integer getCluster() {
 		return cluster;
 	}
 
 	public void setCluster(Cluster cluster) {
-		this.cluster = cluster;
+		this.cluster = cluster.getLabel();
 	}
 
 	public Double getDeathLevel() {
@@ -78,7 +78,7 @@ public class ClusterNode {
 
 	@Override
 	public String toString() {
-		return "ClusterNode [coord=" + coord + ", cluster=" + ((cluster != null)?cluster.getLabel() : "None") + ", deathLevel=" + deathLevel + ", outlierScore="
+		return "ClusterNode [coord=" + coord + ", cluster=" + ((cluster != null)?cluster : "None") + ", deathLevel=" + deathLevel + ", outlierScore="
 				+ outlierScore + "]";
 	}
 	

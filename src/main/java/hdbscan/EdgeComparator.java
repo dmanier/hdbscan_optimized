@@ -3,12 +3,13 @@ package hdbscan;
 import java.util.Comparator;
 
 import org.jgrapht.graph.DefaultWeightedEdge;
+import org.jgrapht.graph.SimpleWeightedGraph;
 import org.jgrapht.graph.UndirectedWeightedSubgraph;
 
 public class EdgeComparator implements Comparator<DefaultWeightedEdge> {
-	private UndirectedWeightedSubgraph<ClusterNode, DefaultWeightedEdge> graph;
+	private SimpleWeightedGraph<ClusterNode, DefaultWeightedEdge> graph;
 	
-	public EdgeComparator(UndirectedWeightedSubgraph<ClusterNode, DefaultWeightedEdge> graph){
+	public EdgeComparator(SimpleWeightedGraph<ClusterNode, DefaultWeightedEdge> graph){
 		this.graph = graph;
 	}
 
